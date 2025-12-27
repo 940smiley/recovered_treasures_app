@@ -1,0 +1,6 @@
+Feature name,Feasibility score,Estimated dev time,Expected impact,Priority rating,Recommended branch name: codex/<feature>
+AI listing generator UI,0.82,2-3 days,"Improves seller productivity with multi-model copy drafts.",High,codex/ai-listing-generator
+Model management settings,0.78,1-2 days,"Exposes model registry toggles and default parameter controls in the dashboard.",Medium,codex/model-management
+Automated pricing intelligence,0.74,3-4 days,"Combines comps with AI explanations for suggested prices.",High,codex/pricing-intel
+Background hotness scheduler,0.71,1 day,"Keeps inventory freshness scores current without manual triggers.",Medium,codex/hotness-cron
+PWA offline cache tuning,0.65,1-2 days,"Improves mobile resilience when scanning items in low connectivity areas.",Medium,codex/pwa-offline-cache

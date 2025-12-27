@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>Seller Dashboard</title>
+  <style>
+    body{font-family:system-ui;margin:0;background:#f8f9fb}
+    header,main{max-width:1100px;margin:0 auto;padding:1rem}
+    h1{margin:.2rem 0}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1rem}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:.5rem;border-bottom:1px solid #eee}
+    input,select,button,textarea{font:inherit;padding:.5rem}
+    .row{display:flex;gap:.5rem;align-items:center}
+    .muted{color:#6b7280}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>eBay Seller Dashboard</h1>
+    <div class="row">
+      <button id="ping">Ping</button>
+      <button id="hotness">Run Hotness</button>
+      <span id="status" class="muted"></span>
+    </div>
+  </header>
+  <main class="grid">
+    <section class="card">
+      <h2>Upload Items</h2>
+      <form id="uploadForm">
+        <div class="row">
+          <input type="text" name="title" placeholder="Title (optional)" />
+          <input type="text" name="category" placeholder="Category (optional)" />
+        </div>
+        <p class="muted">Select photos (use iPhone camera) — multiple allowed</p>
+        <input type="file" name="files" id="files" accept="image/*" multiple capture="environment" />
+        <div class="row"><button type="submit">Upload</button><span id="uploadStatus" class="muted"></span></div>
+      </form>
+    </section>
+    <section class="card">
+      <h2>Drafts</h2>
+      <table>
+        <thead><tr><th>Image</th><th>Title</th><th>Price</th><th>Category</th><th></th></tr></thead>
+        <tbody id="drafts"></tbody>
+      </table>
+    </section>
+    <section class="card" style="grid-column:1/-1">
+      <h2>Edit Draft</h2>
+      <form id="editForm">
+        <input type="hidden" name="id" id="editId" />
+        <div class="row"><input type="text" id="editTitle" placeholder="Title" style="flex:1" /></div>
+        <div class="row"><textarea id="editDesc" placeholder="Description" style="flex:1"></textarea></div>
+        <div class="row"><input type="text" id="editCategory" placeholder="Category" style="flex:1" /><input type="number" step="0.01" id="editPrice" placeholder="Price" style="width:160px" /></div>
+        <div class="row"><button type="submit">Save</button><span id="editStatus" class="muted"></span></div>
+      </form>
+    </section>
+      <section class="card" style="grid-column:1/-1">
+      <h2>Settings</h2>
+      <form id="settingsForm" class="row">
+        <label>Image weight <input type="number" id="setImageWeight" style="width:120px" /></label>
+        <label>Recency weight <input type="number" id="setRecencyWeight" style="width:120px" /></label>
+        <button type="submit">Save</button>
+        <span id="settingsStatus" class="muted"></span>
+      </form>
+    </section>
+  </main>
+<script>
+const API = location.origin.replace(':5173', ':8000');
+async function ping(){ const r = await fetch(API+'/api/health'); document.getElementById('status').textContent = r.ok ? 'API ok' : 'API down'; }
+async function runHotness(){ const r = await fetch(API+'/api/hotness/run', {method:'POST'}); const j = await r.json(); document.getElementById('status').textContent = 'Hotness updated: '+j.updated; }
+async function loadDrafts(){
+  const r = await fetch(API+'/api/drafts'); const data = await r.json(); const tb = document.getElementById('drafts');
+  tb.innerHTML = data.map(d=>`<tr><td>${d.image?`<img src="${API}/${d.image.file_path}" style="width:60px;height:60px;object-fit:cover;border-radius:6px">`:''}</td><td>${d.title??''}</td><td>${d.price??''}</td><td>${d.category??''}</td><td><button data-id="${d.id}" class="edit">Edit</button></td></tr>`).join('');
+  tb.querySelectorAll('.edit').forEach(btn=>btn.addEventListener('click',()=>startEdit(btn.dataset.id)));
+}
+async function startEdit(id){
+  const r = await fetch(API+'/api/drafts/'+id); const d = await r.json();
+  document.getElementById('editId').value = d.id;
+  document.getElementById('editTitle').value = d.title||'';
+  document.getElementById('editDesc').value = d.description||'';
+  document.getElementById('editCategory').value = d.category||'';
+  document.getElementById('editPrice').value = d.price||'';
+}
+async function saveEdit(ev){ ev.preventDefault();
+  const id = document.getElementById('editId').value;
+  const payload = { title: editTitle.value, description: editDesc.value, category: editCategory.value, price: editPrice.value? Number(editPrice.value): null };
+  const r = await fetch(API+'/api/drafts/'+id, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  document.getElementById('editStatus').textContent = r.ok ? 'Saved' : 'Error';
+  loadDrafts();
+}
+async function upload(ev){ ev.preventDefault(); const fd = new FormData(ev.target); const files = document.getElementById('files').files; for(const f of files){ fd.append('files', f); }
+  const r = await fetch(API+'/api/items/upload', { method:'POST', body: fd });
+  document.getElementById('uploadStatus').textContent = r.ok ? 'Uploaded' : 'Failed';
+  loadDrafts();
+}
+
+document.getElementById('ping').addEventListener('click', ping);
+document.getElementById('hotness').addEventListener('click', runHotness);
+document.getElementById('uploadForm').addEventListener('submit', upload);
+document.getElementById('editForm').addEventListener('submit', saveEdit);
+loadDrafts(); ping();\nloadSettings();
+</script>
+</body>
+</html>
+
+
+<script>
+async function loadSettings(){ const r = await fetch(API+'/api/settings'); const s = await r.json(); setImageWeight.value = s.image_weight; setRecencyWeight.value = s.recency_weight; }
+async function saveSettings(ev){ ev.preventDefault(); const payload = { image_weight: Number(setImageWeight.value), recency_weight: Number(setRecencyWeight.value) }; const r = await fetch(API+'/api/settings',{ method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)}); settingsStatus.textContent = r.ok ? 'Saved' : 'Error'; }
+document.getElementById('settingsForm').addEventListener('submit', saveSettings);
+loadSettings();
+</script>
